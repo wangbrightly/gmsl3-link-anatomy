@@ -128,6 +128,10 @@ function planeMatrix(o, ex, ey) {
   const v = (x) => x.toFixed(4);
   return `matrix(${v(px[0] - p0[0])} ${v(px[1] - p0[1])} ${v(py[0] - p0[0])} ${v(py[1] - p0[1])} ${p0[0].toFixed(2)} ${p0[1].toFixed(2)})`;
 }
+// 板面上的平面图形（走线、过孔、丝印、空焊盘）厚度为零，排序算法分不出它和板面谁在前，
+// 所以直接拼进板子自己的图层、紧跟板面之后画，永远不会被板子盖住。
+const OVER = {};
+const overlay = (host, seg, svg) => { OVER[host] = (OVER[host] ?? "") + `<g class="lk-sub"${seg ? ` data-seg="${seg}"` : ""}>${svg}</g>`; };
 // 板面走线：画在一个水平板面（z）或竖直板面（y）上
 function traces(name, lines, { z, y, seg, pads = true, tone = "faint", bias = 0.05, kind = "trace", wide = false }) {
   const to3 = (p) => (z !== undefined ? [p[0], p[1], z + 0.02] : [p[0], y + 0.02, p[1]]);
@@ -137,10 +141,9 @@ function traces(name, lines, { z, y, seg, pads = true, tone = "faint", bias = 0.
   const min = [0, 1, 2].map((i) => Math.min(...all.map((p) => p[i])));
   const max = [0, 1, 2].map((i) => Math.max(...all.map((p) => p[i])) + 0.05);
   const pad = z !== undefined ? [0.3, 0.3, 0] : [0.3, 0, 0.3];
-  const shape = record(A.box(G.sub3(min, pad), G.add3(max, pad), { name }));
   const cls = wide ? "lk-trace lk-wide" : "lk-trace";
   const hit = seg ? `<path class="lk-hitline" d="${d}"/>` : "";
-  put(name, [(min[0] + max[0]) / 2, (min[1] + max[1]) / 2, (min[2] + max[2]) / 2], hit + Ln(d, { tone, className: cls }) + (ends.length ? Dots(ends, { size: 0.32, tone: "lo" }) : ""), [shape], { bias, seg });
+  overlay(z === undefined ? "cam.board" : z === TB ? "ecu.board" : "disp.board", seg, hit + Ln(d, { tone, className: cls }) + (ends.length ? Dots(ends, { size: 0.32, tone: "lo" }) : ""));
   return lines.map((pts) => pts.map(to3));
 }
 const pins = (x0, x1, y0, y1, z, n) => {
@@ -348,9 +351,11 @@ box("b1.cap", [29.2, 22.6, TB], [30.8, 24.2, TB + 0.8], { tone: "hi" }, { seg: "
 box("b1.esd", [32.8, 27.2, TB], [34.4, 28.8, TB + 0.8], { tone: "hi" }, { seg: "b1" });
 const A2_TRACE = traces("a2.trace", [[[-30, 32], [-30, 17]], [[-30, 25], [-39.8, 25]], [[-30, 28], [-26.4, 28]]], { z: TB, seg: "a2", tone: "mid", wide: true });
 traces("ecu.pocfeed", [[[-44.2, 25], [-48, 25], [-48, -12.5]]], { z: TB });
-const LANES = [0, 1, 2, 3];
-const CSI = traces("soc.in", LANES.map((i) => { const x0 = -33.4 + i * 1.6; const yk = -15 - (3 - i) * 1.6; return [[x0, 8], [x0, yk], [-13, yk]]; }), { z: TB, seg: "soc", tone: "mid" });
-const DSI = traces("soc.out", LANES.map((i) => { const x0 = 33.4 - i * 1.6; const yk = -15 - (3 - i) * 1.6; return [[13, yk], [x0, yk], [x0, 8]]; }), { z: TB, seg: "soc", tone: "mid" });
+// D-PHY / eDP 都画成 5 对差分线：对内间距 0.6，对间 1.6（CSI-2、DSI = 1 时钟 + 4 数据；eDP = 4 主链路 + 1 AUX）
+const PAIRS = Array.from({ length: 10 }, (_, i) => Math.floor(i / 2) * 1.6 + (i % 2) * 0.6);
+const SPAN = PAIRS[PAIRS.length - 1];
+traces("soc.in", PAIRS.map((o) => { const x0 = -34 + o; const yk = -14 - (SPAN - o); return [[x0, 8], [x0, yk], [-13, yk]]; }), { z: TB, seg: "soc", tone: "mid", pads: false });
+traces("soc.out", PAIRS.map((o) => { const x0 = 34 - o; const yk = -14 - (SPAN - o); return [[13, yk], [x0, yk], [x0, 8]]; }), { z: TB, seg: "soc", tone: "mid", pads: false });
 traces("ecu.ddr", [-1, 1].flatMap((s) => [0, 1, 2, 3, 4].map((i) => [[s * 30, -26.4 - i * 1.4], [s * 13, -26.4 - i * 1.4]])), { z: TB, pads: false });
 traces("ecu.misc", [[[-14, -0.5], [-13, -0.5], [-13, -11]], [[38, 33], [36, 33], [36, 38]]], { z: TB });
 // 细节：去耦电容、调试排针、状态灯、过孔缝合、丝印框
@@ -366,7 +371,7 @@ passives("ser2.decap", [[36.6, 10, true], [36.6, 13, true], [36.6, 16, true]], T
 passives("ecu.r", [[-20, 30, false], [-20, 33, false], [20, 30, false], [20, 33, false], [-52, 2, true], [-50, 2, true]], TB);
 box("ecu.header", [-56, 14, TB], [-49.6, 26, TB + 2.4], { tone: "mid" }, { r: 0.3, steps: 1, extra: Dots([0, 1, 2, 3, 4].flatMap((i) => [at([-54.4, 15.2 + i * 2.4, TB + 2.4]), at([-51.2, 15.2 + i * 2.4, TB + 2.4])]), { size: 0.45, tone: "hi" }) });
 put("ecu.led", [52, 22, TB + 0.6], `<g class="lk-led" data-led="ecu">${S(k.slabOf({ x: 51, y: 21.2, w: 2, d: 1.6, r: 0.3 }, TB, 0.7, P, 2), { tone: "hi" })}</g>`, [record(A.box([51, 21.2, TB], [53, 22.8, TB + 0.7], { name: "ecu.led" }))]);
-put("ecu.vias", [0, 39, TB + 0.02], Dots(Array.from({ length: 24 }, (_, i) => at([-46 + i * 4, 40, TB])).concat(Array.from({ length: 22 }, (_, i) => at([-56, -46 + i * 4, TB]))), { size: 0.3, tone: "lo" }) + Ln(k.planOutline({ x: -56.4, y: -52.4, w: 112.8, d: 92.8, r: 1.4 }, TB + 0.01, P, 3), { tone: "faint" }), [record(A.box([-57, -53, TB], [57, 41, TB + 0.03], { name: "ecu.vias" }))], { bias: 0.02 });
+overlay("ecu.board", null, Dots(Array.from({ length: 24 }, (_, i) => at([-46 + i * 4, 40, TB])).concat(Array.from({ length: 22 }, (_, i) => at([-56, -46 + i * 4, TB]))), { size: 0.3, tone: "lo" }) + Ln(k.planOutline({ x: -56.4, y: -52.4, w: 112.8, d: 92.8, r: 1.4 }, TB + 0.01, P, 3), { tone: "faint" }));
 const B1_TRACE = traces("b1.trace", [[[30, 17], [30, 32]], [[30, 28], [32.8, 28]]], { z: TB, seg: "b1", tone: "mid", wide: true });
 
 // ================= 屏幕 =================
@@ -407,18 +412,18 @@ rightAngleD("b2", DJX, "b2");
 chip("des2", DJX, 14.5, 9, 9, TD, 1.2, { seg: "des2" });
 box("b2.cap", [DJX - 0.8, 22.6, TD], [DJX + 0.8, 24.2, TD + 0.8], { tone: "hi" }, { seg: "b2" });
 box("b2.esd", [DJX + 2.8, 25.2, TD], [DJX + 4.4, 26.8, TD + 0.8], { tone: "hi" }, { seg: "b2" });
-put("b2.dnp", [DJX - 6, 26, TD + 0.02], Ln(k.planOutline({ x: DJX - 8, y: 24.6, w: 4, d: 2.8, r: 0.3 }, TD, P, 1) + k.planOutline({ x: DJX - 8.6, y: 24, w: 5.2, d: 4, r: 0.4 }, TD, P, 1), { tone: "lo" }), [record(A.box([DJX - 8.6, 24, TD], [DJX - 3.4, 28, TD + 0.05], { name: "b2.dnp" }))], { bias: 0.05, seg: "b2" });
+overlay("disp.board", "b2", Ln(k.planOutline({ x: DJX - 8, y: 24.6, w: 4, d: 2.8, r: 0.3 }, TD, P, 1) + k.planOutline({ x: DJX - 8.6, y: 24, w: 5.2, d: 4, r: 0.4 }, TD, P, 1), { tone: "lo" }));
 const B2_TRACE = traces("b2.trace", [[[DJX, 30], [DJX, 19]], [[DJX, 26], [DJX + 2.8, 26]], [[DJX, 26], [DJX - 3.4, 26]]], { z: TD, seg: "b2", tone: "mid", wide: true });
 chip("tcon", 206, 15, 11, 9, TD, 1.2, { n: 7 });
 box("disp.dcjack", [203, 28, TD], [213, 38, TD + 6], { tone: "mid" }, { r: 0.8, steps: 2, extra: Ln(k.ring(208, 38, 1.6, TD + 3, P, 16), { tone: "faint" }) });
 vcyl("disp.ecap", 158, 6, 2.6, TD, TD + 5.6, { tone: "hi" }, { inner: Ln(k.sideArc(158, 6, 2.6, TD + 4.8, P, 20), { tone: "faint" }) });
 box("disp.fpcconn", [188, -9, TD], [202, -3, TD + 2], { tone: "mid" }, { r: 0.3, seg: "disp", extra: Ln(path3([[188.6, -9, TD + 2], [201.4, -9, TD + 2]]), { tone: "lo" }) });
-const VID = traces("des2.out", LANES.map((i) => { const x0 = DJX - 2.4 + i * 1.6; const yk = 6 - (3 - i) * 1.6; const xe = 191.6 + i * 2.2; return [[x0, 10], [x0, yk], [xe, yk], [xe, -3]]; }), { z: TD, seg: "des2", tone: "mid" });
-traces("disp.misc", [[[201, 15], [196, 15], [196, 3.4]], [[203, 33], [201, 33], [201, 19.5]]], { z: TD });
+traces("des2.out", PAIRS.map((o) => { const x0 = DJX - SPAN / 2 + o; const yk = 6.5 - (SPAN - o) * 0.95; const xe = 190.2 + o * 1.3; return [[x0, 10], [x0, yk], [xe, yk], [xe, -3]]; }), { z: TD, seg: "des2", tone: "mid", pads: false });
+traces("disp.misc", [[[203, 33], [201, 33], [201, 19.5]]], { z: TD });
 passives("des2.decap", [[DJX - 6.6, 11, true], [DJX - 6.6, 14, true], [DJX - 6.6, 17, true]], TD, "des2");
 passives("disp.r", [[186, 14, false], [186, 17, false], [186, 20, false], [213, 9, true], [215, 9, true]], TD);
 put("disp.led", [216, 2, TD + 0.6], `<g class="lk-led" data-led="disp">${S(k.slabOf({ x: 215, y: 1.2, w: 2, d: 1.6, r: 0.3 }, TD, 0.7, P, 2), { tone: "hi" })}</g>`, [record(A.box([215, 1.2, TD], [217, 2.8, TD + 0.7], { name: "disp.led" }))]);
-put("disp.vias", [185, 38, TD + 0.02], Dots(Array.from({ length: 17 }, (_, i) => at([152 + i * 4, 38, TD])), { size: 0.3, tone: "lo" }) + Ln(k.planOutline({ x: 149.6, y: -8.4, w: 70.8, d: 46.8, r: 1 }, TD + 0.01, P, 3), { tone: "faint" }), [record(A.box([149, -9, TD], [221, 39, TD + 0.03], { name: "disp.vias" }))], { bias: 0.02 });
+overlay("disp.board", null, Dots(Array.from({ length: 17 }, (_, i) => at([152 + i * 4, 38, TD])), { size: 0.3, tone: "lo" }) + Ln(k.planOutline({ x: 149.6, y: -8.4, w: 70.8, d: 46.8, r: 1 }, TD + 0.01, P, 3), { tone: "faint" }));
 // 排线（FFC）从连接器到面板底边
 {
   const C = [[-9, TD + 1], [-16, TD + 1], [-24, TD + 2.8], [-32, TD + 7.6], [-38, TD + 12.4], [-42.6, TD + 15], [-43, PANEL.z0]];
@@ -450,6 +455,11 @@ const CA1 = cable("ca.1", [[CAMJ.x, -29, CAMJ.z], [CAMJ.x, -16, CAMJ.z], [CAMJ.x
 const CA2 = cable("ca.2", [[INLINE.x1, INLINE.y, INLINE.z], [-96, INLINE.y, INLINE.z], [-78, 62, LIE], [-40, 70, LIE], [-30, 64, JZ], [-30, 48, JZ]], CR, { seg: "ca", shells: [false, true], bend: 7 });
 const CB_ = cable("cb", [[30, 48, JZ], [30, 62, JZ], [44, 74, LIE], [120, 74, LIE], [158, 62, LIE], [DJX, 56, TD + 4.6], [DJX, 46, TD + 4.6]], CR, { seg: "cb", shells: [true, true], bend: 7 });
 
+for (const [host, svg] of Object.entries(OVER)) {
+  const item = R.items.find((it) => it.name === host);
+  if (!item) throw new Error(`overlay host ${host} not found`);
+  item.svg += svg;
+}
 A.settle(R, P);
 R.items.sort((a, b) => a.key - b.key);
 const groups = R.items.map((item) => `<g class="it" data-name="${item.name}"${item.attrs ?? ""}>${item.svg}</g>`);

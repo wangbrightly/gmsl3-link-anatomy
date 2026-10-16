@@ -32,7 +32,8 @@
 .it[data-on] .iso-solid>.iso-fill{fill:var(--anatomy-face)}
 .it[data-on] .iso-solid>.iso-top{fill:var(--anatomy-lit-top)}
 .it[data-on] .iso-solid>.iso-shade{fill:var(--anatomy-lit-shade)}
-.it[data-on] .lk-trace{stroke:var(--anatomy-lit);stroke-width:1.15}
+.it[data-on] .lk-trace,.lk-sub[data-on] .lk-trace{stroke:var(--anatomy-lit);stroke-width:1.15}
+.lk-sub[data-on] .iso-line:not(.lk-trace){stroke:var(--anatomy-lit)}
 .it[data-on] .tb-body{fill:var(--anatomy-lit-shade)}
 .it[data-on] .tb-shine{fill:var(--anatomy-lit-top)}
 

@@ -175,7 +175,7 @@ function select(id, { from = "user" } = {}) {
   selected = id;
   const ids = id ? (SEG[id].parts ?? [id]) : [];
   svg.querySelectorAll("[data-on]").forEach((el) => el.removeAttribute("data-on"));
-  for (const x of ids) svg.querySelectorAll(`.it[data-seg="${x}"]`).forEach((el) => el.setAttribute("data-on", ""));
+  for (const x of ids) svg.querySelectorAll(`.lk-bench [data-seg="${x}"]`).forEach((el) => el.setAttribute("data-on", ""));
   if (id) stage.setAttribute("data-sel", id); else stage.removeAttribute("data-sel");
   document.querySelectorAll(".lk-chip").forEach((b) => b.toggleAttribute("data-on", b.dataset.pick === id));
   readout.textContent = id ? shortLine(SEG[id]) : "";
