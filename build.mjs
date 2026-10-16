@@ -179,7 +179,7 @@ function cable(name, points, r, { tone = "mid", bend = 6, shells = [true, true],
     const end = index ? route[route.length - 1] : route[0];
     const tangent = G.tangentAlong(route, index ? total : 0);
     const F = G.frameAlong(end, tangent);
-    // 插头：卡口螺母 + 尾套，滚花
+    // 插座：卡口螺母 + 尾套，滚花
     const prof = index ? [[-SHELL, r * 1.25], [-2.6, SR], [0, SR]] : [[0, SR], [2.6, SR], [SHELL, r * 1.25]];
     const shape = record(A.solid(F, prof, { name: `${name}.plug${index}`, owner: name }));
     const ribs = G.ribsOf(F, index ? -2.6 : 0, index ? 0 : 2.6, SR, 22, P, { fade: [0.1, 0.55], seams: true });

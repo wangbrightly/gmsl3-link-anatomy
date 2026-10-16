@@ -31,7 +31,7 @@ const PCB_SI = [
 const CABLE_SI = [
   "插损上限 @ 3 GHz：短线 7.6 dB，长线 15.6 dB（Table 9）；公式 0.43 + 0.12·√f(MHz) + 0.2·f(GHz)（短）",
   "回损（Table 11）：2–1000 MHz ≤ −18 dB；1–2.5 GHz 线性放宽到 −10 dB；2.5–3.5 GHz ≤ −10 dB",
-  "包含线缆两端插头和中间所有在线连接器（图中那节对接头就是在线连接器）",
+  "包含线缆两端插座和中间所有在线连接器（图中那节对接头就是在线连接器）",
   "线束串扰（Table 7）：NEXT 串→串 < −35 dB、串→解 < −45 dB；远端 PS_ACR_F < −45 dB",
   "最坏情况要算上：最长线、老化、温度、PoC 负载上下限",
 ];
@@ -72,20 +72,20 @@ export const SEGMENTS = [
   },
   {
     id: "a1", num: "3a", name: "串行器侧 PCB 通道", kind: "sub", parent: "chA", il: "pcb",
-    func: "摄像头后盖里那块板：从 SER1 的 SIO 引脚，经 AC 耦合电容、PoC 电感、ESD，到板上同轴插座末端。",
-    io: [["起点", "SER1 SIO 引脚"], ["终点", "板载同轴插座末端"]],
+    func: "摄像头后盖里那块板：从 SER1 的 SIO 引脚，经 AC 耦合电容、PoC 电感、ESD，到板上同轴插头末端。",
+    io: [["起点", "SER1 SIO 引脚"], ["终点", "板载同轴插头末端"]],
     si: PCB_SI,
   },
   {
     id: "ca", num: "3b", name: "线缆通道 A", kind: "sub", parent: "chA", il: "cable",
-    func: "从摄像头端插头到 ECU 端插头，包括同轴线本身和中间那节在线连接器。",
-    io: [["起点", "摄像头端线缆插头"], ["终点", "ECU 端线缆插头"], ["承载", "前向视频 + 反向控制 + PoC 直流电源，同在一根线上"]],
+    func: "从摄像头端插座到 ECU 端插座，包括同轴线本身和中间那节在线连接器。",
+    io: [["起点", "摄像头端线缆插座"], ["终点", "ECU 端线缆插座"], ["承载", "前向视频 + 反向控制 + PoC 直流电源，同在一根线上"]],
     si: CABLE_SI,
   },
   {
     id: "a2", num: "3c", name: "解串器侧 PCB 通道", kind: "sub", parent: "chA", il: "pcb",
-    func: "ECU 板上：从同轴插座末端，经 ESD、AC 耦合电容，到 DES1 的 SIO 引脚；PoC 电感在这里把直流电注入线缆。",
-    io: [["起点", "ECU 板载同轴插座末端"], ["终点", "DES1 SIO 引脚"]],
+    func: "ECU 板上：从同轴插头末端，经 ESD、AC 耦合电容，到 DES1 的 SIO 引脚；PoC 电感在这里把直流电注入线缆。",
+    io: [["起点", "ECU 板载同轴插头末端"], ["终点", "DES1 SIO 引脚"]],
     si: PCB_SI,
   },
   {
@@ -114,20 +114,20 @@ export const SEGMENTS = [
   },
   {
     id: "b1", num: "7a", name: "串行器侧 PCB 通道", kind: "sub", parent: "chB", il: "pcb",
-    func: "ECU 板上：从 SER2 的 SIO 引脚，经 AC 耦合电容、ESD，到板载同轴插座末端。",
-    io: [["起点", "SER2 SIO 引脚"], ["终点", "ECU 板载同轴插座末端"]],
+    func: "ECU 板上：从 SER2 的 SIO 引脚，经 AC 耦合电容、ESD，到板载同轴插头末端。",
+    io: [["起点", "SER2 SIO 引脚"], ["终点", "ECU 板载同轴插头末端"]],
     si: PCB_SI,
   },
   {
     id: "cb", num: "7b", name: "线缆通道 B", kind: "sub", parent: "chB", il: "cable",
-    func: "从 ECU 端插头到屏幕端插头的同轴线。",
-    io: [["起点", "ECU 端线缆插头"], ["终点", "屏幕端线缆插头"], ["承载", "前向显示数据 + 反向数据（本图假设屏幕本地供电，不走 PoC）"]],
+    func: "从 ECU 端插座到屏幕端插座的同轴线。",
+    io: [["起点", "ECU 端线缆插座"], ["终点", "屏幕端线缆插座"], ["承载", "前向显示数据 + 反向数据（本图假设屏幕本地供电，不走 PoC）"]],
     si: CABLE_SI,
   },
   {
     id: "b2", num: "7c", name: "解串器侧 PCB 通道", kind: "sub", parent: "chB", il: "pcb",
-    func: "屏幕驱动板上：从同轴插座末端，经 ESD、AC 耦合电容，到 DES2 的 SIO 引脚。PoC 位置留空未贴。",
-    io: [["起点", "屏幕驱动板同轴插座末端"], ["终点", "DES2 SIO 引脚"]],
+    func: "屏幕驱动板上：从同轴插头末端，经 ESD、AC 耦合电容，到 DES2 的 SIO 引脚。PoC 位置留空未贴。",
+    io: [["起点", "屏幕驱动板同轴插头末端"], ["终点", "DES2 SIO 引脚"]],
     si: PCB_SI,
   },
   {
